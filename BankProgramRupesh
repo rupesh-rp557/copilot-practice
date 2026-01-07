@@ -1,0 +1,300 @@
+import java.util.Scanner;
+import java.util.HashMap;
+import java.util.Map;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class BankingApplication {
+    private static Map<String, BankAccount> accounts = new HashMap<>();
+    private static Scanner scanner = new Scanner(System.in);
+    private static BankAccount currentAccount = null;
+
+    public static void main(String[] args) {
+        System.out.println("========== Welcome to Bank Management System ==========");
+        
+        boolean running = true;
+        while (running) {
+            if (currentAccount == null) {
+                showAuthMenu();
+            } else {
+                showMainMenu();
+            }
+            running = handleUserInput();
+        }
+        
+        System.out.println("Thank you for using our Banking System. Goodbye!");
+        scanner.close();
+    }
+
+    private static void showAuthMenu() {
+        System.out.println("\n1. Create Account");
+        System.out.println("2. Login");
+        System.out.println("3. Exit");
+        System.out.print("Choose an option: ");
+    }
+
+    private static void showMainMenu() {
+        System.out.println("\n===== Main Menu =====");
+        System.out.println("1. Check Balance");
+        System.out.println("2. Deposit Money");
+        System.out.println("3. Withdraw Money");
+        System.out.println("4. Transfer Money");
+        System.out.println("5. View Transaction History");
+        System.out.println("6. Logout");
+        System.out.println("7. Exit");
+        System.out.print("Choose an option: ");
+    }
+
+    private static boolean handleUserInput() {
+        String choice = scanner.nextLine().trim();
+        
+        if (currentAccount == null) {
+            switch (choice) {
+                case "1":
+                    createAccount();
+                    break;
+                case "2":
+                    login();
+                    break;
+                case "3":
+                    return false;
+                default:
+                    System.out.println("Invalid option. Please try again.");
+            }
+        } else {
+            switch (choice) {
+                case "1":
+                    checkBalance();
+                    break;
+                case "2":
+                    depositMoney();
+                    break;
+                case "3":
+                    withdrawMoney();
+                    break;
+                case "4":
+                    transferMoney();
+                    break;
+                case "5":
+                    viewTransactionHistory();
+                    break;
+                case "6":
+                    logout();
+                    break;
+                case "7":
+                    return false;
+                default:
+                    System.out.println("Invalid option. Please try again.");
+            }
+        }
+        return true;
+    }
+
+    private static void createAccount() {
+        System.out.print("Enter Account Number: ");
+        String accountNumber = scanner.nextLine().trim();
+        
+        if (accounts.containsKey(accountNumber)) {
+            System.out.println("Account already exists!");
+            return;
+        }
+        
+        System.out.print("Enter Account Holder Name: ");
+        String accountHolder = scanner.nextLine().trim();
+        
+        System.out.print("Enter PIN (4 digits): ");
+        String pin = scanner.nextLine().trim();
+        
+        if (pin.length() != 4 || !pin.matches("\\d+")) {
+            System.out.println("PIN must be 4 digits!");
+            return;
+        }
+        
+        BankAccount account = new BankAccount(accountNumber, accountHolder, pin);
+        accounts.put(accountNumber, account);
+        System.out.println("Account created successfully!");
+    }
+
+    private static void login() {
+        System.out.print("Enter Account Number: ");
+        String accountNumber = scanner.nextLine().trim();
+        
+        if (!accounts.containsKey(accountNumber)) {
+            System.out.println("Account not found!");
+            return;
+        }
+        
+        System.out.print("Enter PIN: ");
+        String pin = scanner.nextLine().trim();
+        
+        BankAccount account = accounts.get(accountNumber);
+        if (account.verifyPin(pin)) {
+            currentAccount = account;
+            System.out.println("Login successful! Welcome " + account.getAccountHolder());
+        } else {
+            System.out.println("Invalid PIN!");
+        }
+    }
+
+    private static void checkBalance() {
+        System.out.println("\nAccount: " + currentAccount.getAccountNumber());
+        System.out.println("Holder: " + currentAccount.getAccountHolder());
+        System.out.println("Balance: $" + String.format("%.2f", currentAccount.getBalance()));
+    }
+
+    private static void depositMoney() {
+        System.out.print("Enter amount to deposit: $");
+        try {
+            double amount = Double.parseDouble(scanner.nextLine().trim());
+            if (amount <= 0) {
+                System.out.println("Amount must be positive!");
+                return;
+            }
+            currentAccount.deposit(amount);
+            System.out.println("Deposited $" + String.format("%.2f", amount) + " successfully!");
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid amount!");
+        }
+    }
+
+    private static void withdrawMoney() {
+        System.out.print("Enter amount to withdraw: $");
+        try {
+            double amount = Double.parseDouble(scanner.nextLine().trim());
+            if (amount <= 0) {
+                System.out.println("Amount must be positive!");
+                return;
+            }
+            if (currentAccount.withdraw(amount)) {
+                System.out.println("Withdrawn $" + String.format("%.2f", amount) + " successfully!");
+            } else {
+                System.out.println("Insufficient balance!");
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid amount!");
+        }
+    }
+
+    private static void transferMoney() {
+        System.out.print("Enter recipient account number: ");
+        String recipientAccount = scanner.nextLine().trim();
+        
+        if (!accounts.containsKey(recipientAccount)) {
+            System.out.println("Recipient account not found!");
+            return;
+        }
+        
+        if (recipientAccount.equals(currentAccount.getAccountNumber())) {
+            System.out.println("Cannot transfer to your own account!");
+            return;
+        }
+        
+        System.out.print("Enter amount to transfer: $");
+        try {
+            double amount = Double.parseDouble(scanner.nextLine().trim());
+            if (amount <= 0) {
+                System.out.println("Amount must be positive!");
+                return;
+            }
+            
+            if (currentAccount.withdraw(amount)) {
+                BankAccount recipient = accounts.get(recipientAccount);
+                recipient.deposit(amount);
+                currentAccount.addTransaction("Transfer to " + recipient.getAccountHolder(), -amount);
+                recipient.addTransaction("Transfer from " + currentAccount.getAccountHolder(), amount);
+                System.out.println("Transferred $" + String.format("%.2f", amount) + " successfully!");
+            } else {
+                System.out.println("Insufficient balance!");
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid amount!");
+        }
+    }
+
+    private static void viewTransactionHistory() {
+        System.out.println("\n===== Transaction History =====");
+        currentAccount.printTransactionHistory();
+    }
+
+    private static void logout() {
+        System.out.println("Logged out successfully!");
+        currentAccount = null;
+    }
+}
+
+class BankAccount {
+    private String accountNumber;
+    private String accountHolder;
+    private String pin;
+    private double balance;
+    private java.util.ArrayList<Transaction> transactions;
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    public BankAccount(String accountNumber, String accountHolder, String pin) {
+        this.accountNumber = accountNumber;
+        this.accountHolder = accountHolder;
+        this.pin = pin;
+        this.balance = 0;
+        this.transactions = new java.util.ArrayList<>();
+    }
+
+    public boolean verifyPin(String pin) {
+        return this.pin.equals(pin);
+    }
+
+    public double getBalance() {
+        return balance;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public String getAccountHolder() {
+        return accountHolder;
+    }
+
+    public void deposit(double amount) {
+        balance += amount;
+        addTransaction("Deposit", amount);
+    }
+
+    public boolean withdraw(double amount) {
+        if (balance >= amount) {
+            balance -= amount;
+            addTransaction("Withdrawal", -amount);
+            return true;
+        }
+        return false;
+    }
+
+    public void addTransaction(String description, double amount) {
+        transactions.add(new Transaction(description, amount, balance));
+    }
+
+    public void printTransactionHistory() {
+        if (transactions.isEmpty()) {
+            System.out.println("No transactions yet!");
+        } else {
+            System.out.printf("%-30s %-15s %-15s\n", "Description", "Amount", "Balance");
+            System.out.println("================================================================");
+            for (Transaction t : transactions) {
+                System.out.printf("%-30s $%-14.2f $%-14.2f\n", t.description, t.amount, t.balanceAfter);
+            }
+        }
+    }
+}
+
+class Transaction {
+    String description;
+    double amount;
+    double balanceAfter;
+    LocalDateTime timestamp;
+
+    public Transaction(String description, double amount, double balanceAfter) {
+        this.description = description;
+        this.amount = amount;
+        this.balanceAfter = balanceAfter;
+        this.timestamp = LocalDateTime.now();
+    }
+}
